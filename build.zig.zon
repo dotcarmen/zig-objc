@@ -6,6 +6,7 @@
         "src/",
         "build.zig",
         "build.zig.zon",
+        "zig-objc.h",
         "README.md",
         "LICENSE",
     },

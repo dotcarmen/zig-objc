@@ -9,27 +9,85 @@ pub fn build(b: *std.Build) !void {
         "add apple SDK paths from Xcode installation",
     ) orelse true;
 
+    const sysroot: std.Build.LazyPath = .{
+        .cwd_relative = std.zig.system.darwin.getSdk(b.allocator, &target.result).?,
+    };
+
+    const translate_header = b.addTranslateC(.{
+        .root_source_file = b.path("zig-objc.h"),
+        .optimize = optimize,
+        .target = target,
+    });
+    translate_header.addSystemIncludePath(sysroot.path(b, "usr/include"));
+
+    switch (target.result.cpu.arch) {
+        .powerpc => translate_header.defineCMacro("TARGET_CPU_PPC", null),
+        .powerpc64 => translate_header.defineCMacro("TARGET_CPU_PPC64", null),
+        .m68k => translate_header.defineCMacro("TARGET_CPU_68K", null),
+        .x86 => translate_header.defineCMacro("TARGET_CPU_X86", null),
+        .x86_64 => translate_header.defineCMacro("TARGET_CPU_X86_64", null),
+        .arm => translate_header.defineCMacro("TARGET_CPU_ARM", null),
+        .aarch64 => translate_header.defineCMacro("TARGET_CPU_ARM64", null),
+        .mips => translate_header.defineCMacro("TARGET_CPU_MIPS", null),
+        .sparc => translate_header.defineCMacro("TARGET_CPU_SPARC", null),
+        .alpha => translate_header.defineCMacro("TARGET_CPU_ALPHA", null),
+        else => @panic("unsupported architecture"),
+    }
+
+    if (target.result.os.tag.isDarwin()) {
+        translate_header.defineCMacro("TARGET_OS_MAC", null);
+        if (target.result.abi == .simulator)
+            translate_header.defineCMacro("TARGET_OS_SIMULATOR", null);
+    }
+
+    switch (target.result.os.tag) {
+        .windows => translate_header.defineCMacro("TARGET_OS_WINDOWS", null),
+        .linux => translate_header.defineCMacro("TARGET_OS_LINUX", null),
+        .macos => translate_header.defineCMacro("TARGET_OS_OSX", null),
+        inline .ios, .maccatalyst => |tag| {
+            translate_header.defineCMacro("TARGET_OS_IPHONE", null);
+            translate_header.defineCMacro("TARGET_OS_IOS", null);
+            if (tag == .maccatalyst)
+                translate_header.defineCMacro("TARGET_OS_MACCATALYST", null);
+        },
+        inline .tvos, .watchos, .visionos, .driverkit => |tag| {
+            translate_header.defineCMacro("TARGET_OS_IPHONE", null);
+            const target_os = std.mem.cutSuffix(u8, @tagName(tag), "os") orelse @tagName(tag);
+            const upper = std.ascii.allocUpperString(b.allocator, target_os) catch @panic("OOM");
+            translate_header.defineCMacro(b.fmt("TARGET_OS_{s}", .{upper}), null);
+        },
+        else => @panic("unsupported OS"),
+    }
+
+    switch (target.result.cpu.arch.endian()) {
+        .big => translate_header.defineCMacro("TARGET_RT_BIG_ENDIAN", null),
+        .little => translate_header.defineCMacro("TARGET_RT_LITTLE_ENDIAN", null),
+    }
+
+    if (target.result.ptrBitWidth() == 64)
+        translate_header.defineCMacro("TARGET_RT_64_BIT", null);
+
+    // TODO: TARGET_RT_MAC_CFM
+    if (target.result.os.tag.isDarwin() and target.result.ofmt == .macho)
+        translate_header.defineCMacro("TARGET_RT_MAC_MACHO", null);
+
+    const translated_header = translate_header.createModule();
+
     const objc = b.addModule("objc", .{
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
     });
+    objc.addImport("objc.h", translated_header);
     if (add_paths) try addAppleSDK(b, objc);
     objc.linkSystemLibrary("objc", .{});
     objc.linkFramework("Foundation", .{});
 
     const tests = b.addTest(.{
         .name = "objc-test",
-        .root_module = b.createModule(.{
-            .root_source_file = b.path("src/main.zig"),
-            .target = target,
-            .optimize = optimize,
-        }),
+        .root_module = objc,
     });
-    tests.linkSystemLibrary("objc");
-    tests.linkFramework("Foundation");
     tests.linkFramework("AppKit"); // Required by 'tagged pointer' test.
-    try addAppleSDK(b, tests.root_module);
     b.installArtifact(tests);
 
     const test_step = b.step("test", "Run tests");

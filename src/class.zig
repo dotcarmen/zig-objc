@@ -50,7 +50,7 @@ pub const Class = struct {
     }
 
     pub fn conformsToProtocol(self: Class, protocol: objc.Protocol) bool {
-        return boolResult(c.class_conformsToProtocol(self.value, &protocol.value));
+        return boolResult(c.class_conformsToProtocol(self.value, protocol.value));
     }
 
     // currently only allows for overriding methods previously defined, e.g. by a superclass.
