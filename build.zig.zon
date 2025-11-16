@@ -1,7 +1,7 @@
 .{
-    .name = .zig_objc,
+    .name = .objc,
     .version = "0.0.0",
-    .fingerprint = 0x8a91772ba7d2bf22,
+    .fingerprint = 0x42fb94c861b1dab6,
     .paths = .{
         "src/",
         "build.zig",

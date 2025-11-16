@@ -36,5 +36,12 @@ pub inline fn free(ptr: anytype) void {
 }
 
 test {
-    std.testing.refAllDecls(@This());
+    std.testing.refAllDeclsRecursive(AutoreleasePool);
+    std.testing.refAllDeclsRecursive(Class);
+    std.testing.refAllDeclsRecursive(Encoding);
+    std.testing.refAllDeclsRecursive(Iterator);
+    std.testing.refAllDeclsRecursive(Object);
+    std.testing.refAllDeclsRecursive(Property);
+    std.testing.refAllDeclsRecursive(Protocol);
+    std.testing.refAllDeclsRecursive(Sel);
 }
