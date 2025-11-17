@@ -10,7 +10,7 @@ fn comptimeN(comptime T: type) usize {
         const encoding = objc.Encoding.init(T);
 
         // Figure out how much space we need
-        var stream: std.io.Writer.Discarding = .init(&.{});
+        var stream: std.Io.Writer.Discarding = .init(&.{});
         stream.writer.print("{f}", .{encoding}) catch unreachable;
         return stream.count;
     }
@@ -23,7 +23,7 @@ pub fn comptimeEncode(comptime T: type) [comptimeN(T):0]u8 {
 
         // Build our final signature
         var buf: [comptimeN(T) + 1]u8 = undefined;
-        var fbs: std.io.Writer = .fixed(buf[0 .. buf.len - 1]);
+        var fbs: std.Io.Writer = .fixed(buf[0 .. buf.len - 1]);
         fbs.print("{f}", .{encoding}) catch unreachable;
         buf[buf.len - 1] = 0;
 
@@ -107,7 +107,7 @@ pub const Encoding = union(enum) {
 
     pub fn format(
         comptime self: Encoding,
-        writer: *std.io.Writer,
+        writer: *std.Io.Writer,
     ) !void {
         switch (self) {
             .char => try writer.writeAll("c"),
